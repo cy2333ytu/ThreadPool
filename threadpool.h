@@ -67,12 +67,56 @@ public:
     , isPoolRunning_{false}
     {} 
 
-~ThreadPool(){
-    isPoolRunning_ = false;
-    std::unique_lock<std::mutex> lock(taskQueMtx_);
-    notEmpty_.notify_all();
-    exitCond_.wait(lock, [&]()->bool {return threads_.size() == 0;});
-}
+    ~ThreadPool(){
+        isPoolRunning_ = false;
+        std::unique_lock<std::mutex> lock(taskQueMtx_);
+        notEmpty_.notify_all();
+        exitCond_.wait(lock, [&]()->bool {return threads_.size() == 0;});
+    }
+
+    void setMode(PoolMode mode){
+        if(checkRunningState){
+            return;
+        }
+        poolMode_ = mode;
+    }
+// set task max num
+    void setTaskQueMaxThreshHold(int threshhold){
+        if(checkRunningState()){
+            return;
+        }
+        taskQueMaxThreshHold_ = threshhold;
+    }
+// set max thread in cached mode 
+    void setThreadSizeThreshHold(int threshhold){
+        if(checkRunningState()){
+            return;
+        }
+        if(poolMode_ == PoolMode::MODE_CACHED){
+            threadSizeThreshHold_ = threshhold;
+        }
+    }
+    template<typename Func, typename... Args>
+    auto submitTask(Func&& func, Args&&... args) -> std::future<decltype(func(args...))>{
+        using RTtype = decltype(func(args...));
+        auto task = std::make_shared<std::packaged_task<RTtype>>(
+            std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
+        std::future<RTtype> res = task->get_future();
+
+        std::unique_lock<std::mutex> lock(taskQueMtx_);
+
+        if(!notFull_.wait_for(lock, std::chrono::seconds(1),
+        [&]()->bool{ return taskQue_.size() < (size_t)taskQueMaxThreshHold_;})){
+            std::cerr << "task queue is full, submit task fail." << std::endl;
+            auto task = std::make_shared<std::packaged_task<RTtype()>>(
+                []()->RTtype{return RTtype(); });
+            (*task)();
+            return task->get_future();
+        }
+        
+    } 
+
+
 private:
     std::unordered_map<int, std::unique_ptr<Thread>> threads_;
     
@@ -93,6 +137,11 @@ private:
 
     PoolMode poolMode_;
     std::atomic_bool isPoolRunning_;
+
+private:
+    bool checkRunningState() const{
+        return isPoolRunning_;
+    }
 };
 
 #endif
