@@ -17,6 +17,7 @@
 #include <functional>
 #include <thread>
 #include <future>
+#include <unordered_map>
 
 const int TASK_MAX_THRESHHOLD = 2; // INT32_MAX;
 const int THREAD_MAX_THRESHHOLD = 1024;
@@ -65,8 +66,8 @@ public:
     , taskQueMaxThreshHold_{TASK_MAX_THRESHHOLD}
     , poolMode_{PoolMode::MODE_FIXED}
     , isPoolRunning_{false}
-    {} 
-
+{}
+ 
     ~ThreadPool(){
         isPoolRunning_ = false;
         std::unique_lock<std::mutex> lock(taskQueMtx_);
@@ -75,7 +76,7 @@ public:
     }
 
     void setMode(PoolMode mode){
-        if(checkRunningState){
+        if(checkRunningState()){
             return;
         }
         poolMode_ = mode;
@@ -120,7 +121,7 @@ public:
         notEmpty_.notify_all();
     
 // Cached mode, used for quick && small task. based on num of task and idle thread
-        if(PoolMode_ == PoolMode::MODE_CACHED
+        if(poolMode_ == PoolMode::MODE_CACHED
         && taskSize_ > idleThreadSize_
         && curThreadSize_ < threadSizeThreshHold_){
             std::cout<< ">>>create new thread..." << std::endl;
