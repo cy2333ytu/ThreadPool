@@ -184,7 +184,64 @@ private:
         return isPoolRunning_;
     }
 
-    void threadFunc(int threadid);
+    void threadFunc(int threadid){
+        auto lastTime = std::chrono::high_resolution_clock().now();
+
+        for(;;){
+            Task task;
+            {
+                std::unique_lock<std::mutex> lock(taskQueMtx_);
+                std::cout << "tid: " << std::this_thread::get_id() <<
+                " try to get task..." << std::endl;
+                while(taskQue_.size() == 0){
+                    if(!isPoolRunning_){
+                        threads_.erase(threadid);
+                        std::cout << "threadid: " << std::this_thread::get_id()
+                        << " exit!" << std::endl;
+
+                        exitCond_.notify_all();
+                        return;
+                    }
+                    if(poolMode_ == PoolMode::MODE_CACHED){
+                        if(std::cv_status::timeout == 
+                        notEmpty_.wait_for(lock, std::chrono::seconds(1))){
+
+                        auto now = std::chrono::high_resolution_clock().now();
+                        auto dur = std::chrono::duration_cast<std::chrono::seconds>(now - lastTime);
+                            if(dur.count() >= THREAD_MAX_IDLE_TIME && curThreadSize_ > initThreadSize_){
+                                threads_.erase(threadid);
+                                curThreadSize_--;
+                                idleThreadSize_--;
+
+                                std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
+                                return;
+                            }    
+                        }
+                    }
+                else{
+                    notEmpty_.wait(lock);
+                }
+                }
+                idleThreadSize_--;
+                std::cout << "tid: " <<std::this_thread::get_id() << "get task successfully" << std::endl;
+
+                task = taskQue_.front();
+                taskQue_.pop();
+                taskSize_--;
+
+                if(taskQue_.size() > 0){
+                    notEmpty_.notify_all();
+                }
+                notFull_.notify_all();
+            }
+            if(task != nullptr){
+                task();
+            }
+            idleThreadSize_++;
+            lastTime = std::chrono::high_resolution_clock().now();
+
+        }
+    }
 
 };
 
