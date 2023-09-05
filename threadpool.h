@@ -106,7 +106,8 @@ public:
         std::unique_lock<std::mutex> lock(taskQueMtx_);
 
         if(!notFull_.wait_for(lock, std::chrono::seconds(1),
-        [&]()->bool{ return taskQue_.size() < (size_t)taskQueMaxThreshHold_;})){
+        [&]()->bool{ return taskQue_.size() < (size_t)taskQueMaxThreshHold_;}))
+        {
             std::cerr << "task queue is full, submit task fail." << std::endl;
             auto task = std::make_shared<std::packaged_task<RTtype()>>(
                 []()->RTtype{return RTtype(); });
@@ -114,8 +115,48 @@ public:
             return task->get_future();
         }
         
-    } 
+        taskQue_.emplace([task](){(*task)();});
+        taskSize_++;
+        notEmpty_.notify_all();
+    
+// Cached mode, used for quick && small task. based on num of task and idle thread
+        if(PoolMode_ == PoolMode::MODE_CACHED
+        && taskSize_ > idleThreadSize_
+        && curThreadSize_ < threadSizeThreshHold_){
+            std::cout<< ">>>create new thread..." << std::endl;
+            auto ptr = std::make_unique<Thread>(std::bind(&ThreadPool::threadFunc,
+            this, std::placeholders::_1));
 
+            int threadId = ptr->getId();
+            threads_.emplace(threadId, std::move(ptr));
+// start thread
+        threads_[threadId]->start();
+        curThreadSize_++;
+        idleThreadSize_--;
+        }
+        return res;
+    } 
+    void start(int initThreadSize = std::thread::hardware_concurrency()){
+        isPoolRunning_ = true;
+        initThreadSize_ = initThreadSize;
+        curThreadSize_ = initThreadSize;
+
+// create threads
+    for(int i = 0; i < initThreadSize_; i++){
+        auto ptr = std::make_unique<Thread>(std::bind(&ThreadPool::threadFunc, this,
+        std::placeholders::_1));
+        
+        int threadId = ptr->getId();
+        threads_.emplace(threadId, std::move(ptr));
+    }
+// start threads
+    for(int i = 0; i < initThreadSize_; i++){
+        threads_[i]->start();
+        idleThreadSize_++;
+    }
+    }
+    ThreadPool(const ThreadPool&) = delete;   
+    ThreadPool& operator=(const ThreadPool&) = delete;            
 
 private:
     std::unordered_map<int, std::unique_ptr<Thread>> threads_;
@@ -142,6 +183,9 @@ private:
     bool checkRunningState() const{
         return isPoolRunning_;
     }
+
+    void threadFunc(int threadid);
+
 };
 
 #endif
