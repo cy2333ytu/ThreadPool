@@ -100,7 +100,7 @@ public:
     template<typename Func, typename... Args>
     auto submitTask(Func&& func, Args&&... args) -> std::future<decltype(func(args...))>{
         using RTtype = decltype(func(args...));
-        auto task = std::make_shared<std::packaged_task<RTtype>>(
+        auto task = std::make_shared<std::packaged_task<RTtype()>>(
             std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
         std::future<RTtype> res = task->get_future();
 
