@@ -14,7 +14,7 @@ using namespace std;
    pool.submitTask(sum2, 1 ,2, 3);
    submitTask:可变参模板编程
 
-2. 我们自己造了一个Result以及相关的类型，代码挺多
+2. 造了一个Result以及相关的类型
     C++11 线程库   thread   packaged_task(function函数对象)  async 
    使用future来代替Result节省线程池代码
 */
@@ -30,16 +30,7 @@ int sum2(int a, int b, int c)
     this_thread::sleep_for(chrono::seconds(2));
     return a + b + c;
 }
-// io线程 
-void io_thread(int listenfd)
-{
 
-}
-// worker线程
-void worker_thread(int clientfd)
-{
-
-}
 int main()
 {
     ThreadPool pool;
