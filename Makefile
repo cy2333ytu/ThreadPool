@@ -1,32 +1,32 @@
-# Makefile for ThreadPool_TwoMode
-
-# Compiler settings
 CC = g++
-CFLAGS = -std=c++14 -Wall -Wextra -pthread
+CFLAGS = -std=c++11 -Wall -fPIC
+LDFLAGS = -pthread -lbenchmark
 
-# Source and object file settings
 SRC_DIR = .
-SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 OBJ_DIR = obj
-OBJ_FILES = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
+LIB_DIR = lib
+BIN_DIR = bin
 
-# Executable file setting
-EXECUTABLE = ThreadPool_TwoMode
+SRC_FILES := $(wildcard $(SRC_DIR)/*.cpp)
+OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES))
+TARGET = $(LIB_DIR)/libThreadPool.so
+EXECUTABLE = $(BIN_DIR)/ThreadPool
 
-# Default target (compiling the executable)
-all: $(EXECUTABLE)
+all: $(TARGET) $(EXECUTABLE)
+
+$(TARGET): $(OBJ_FILES)
+	@mkdir -p $(LIB_DIR)
+	$(CC) $(CFLAGS) -shared $^ -o $@ $(LDFLAGS)
 
 $(EXECUTABLE): $(OBJ_FILES)
-	$(CC) $(CFLAGS) $^ -o $@
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
-
-# Clean generated files
 clean:
-	rm -rf $(OBJ_DIR) $(EXECUTABLE)
+	rm -rf $(OBJ_DIR) $(LIB_DIR) $(BIN_DIR)
 
 .PHONY: all clean
