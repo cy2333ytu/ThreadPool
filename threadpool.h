@@ -38,7 +38,6 @@ public:
         _run = false;
         _task_cv.notify_all(); // Wake up all threads to execute
         for (std::thread& thread : _pool) {
-            // thread.detach(); // Let the thread "live or die on its own"
             if (thread.joinable())
                 thread.join(); // Wait for tasks to finish, prerequisite: threads must complete execution
         }

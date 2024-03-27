@@ -4,16 +4,16 @@
 #include <iostream>
 
 void fun1(int slp) {
-    std::cout << "  hello, fun1 !" << std::this_thread::get_id() << "\n";
+    // std::cout << "  hello, fun1 !" << std::this_thread::get_id() << "\n";
     if (slp > 0) {
-        std::cout << " ======= fun1 sleep " << slp << "=========" << std::this_thread::get_id();
+        // std::cout << " ======= fun1 sleep " << slp << "=========" << std::this_thread::get_id();
         std::this_thread::sleep_for(std::chrono::milliseconds(slp));
     }
 }
 
 struct gfun {
     int operator()(int n) {
-        std::cout << n << " hello, gfun ! " << std::this_thread::get_id();
+        // std::cout << n << " hello, gfun ! " << std::this_thread::get_id();
         return 42;
     }
 };
@@ -21,19 +21,20 @@ struct gfun {
 class A {    // The function must be static to be used in a thread pool
 public:
     static int Afun(int n = 0) {
-        std::cout << n << "  hello, Afun !  " << std::this_thread::get_id() << std::endl;
+        // std::cout << n << "  hello, Afun !  " << std::this_thread::get_id() << std::endl;
         return n;
     }
 
     static std::string Bfun(int n, std::string str, char c) {
-        std::cout << n << "  hello, Bfun !  " << str.c_str() << "  " << (int)c << "  " << std::this_thread::get_id() << std::endl;
+        // std::cout << n << "  hello, Bfun !  " << str.c_str() << "  " << (int)c << "  " << std::this_thread::get_id() << std::endl;
         return str;
     }
 };
 
 static void BM_ThreadpoolConcurrency(benchmark::State& state) {
     try {
-        ccy::ThreadPool executor{ 50 };
+        size_t num_threads = std::thread::hardware_concurrency();
+        ccy::ThreadPool executor{ num_threads };
         A a;
         std::future<void> ff = executor.commit(fun1, 0);
         std::future<int> fg = executor.commit(gfun{}, 0);
@@ -44,7 +45,7 @@ static void BM_ThreadpoolConcurrency(benchmark::State& state) {
         std::cout << " =======  sleep ========= " << std::this_thread::get_id() << std::endl;
         std::this_thread::sleep_for(std::chrono::microseconds(900));
 
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < num_threads; i++) {
             executor.commit(fun1, i * 100);
         }
         std::cout << " =======  commit all ========= " << std::this_thread::get_id() << " idlsize=" << executor.idlCount() << std::endl;
